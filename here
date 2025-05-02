@@ -1,0 +1,76 @@
+
+#include <pthread.h>
+#include <jni.h>
+#include <unistd.h>
+#include "Includes/Strings.h" // this should be within your lgl mod menu if you dont already have it !
+
+// custom thread for the delay to be added, 10 seconds is a must or anything under 10 seconds will crash the game on startup
+void *set_admin_thread(void *) {
+   
+    sleep(10); // do NOT lower
+
+    // find set in within your obscuredprefs class, if you want you can obfuscate it
+    void (*ObscuredPrefs_SetInt)(void *key, int value) = (void (*)(void*, int))getAbsoluteAddress("libil2cpp.so", string2Offset("0x1234567")); // 
+
+  
+    void (*ObscuredPrefs_DeleteKey)(void *key) = (void (*)(void*))getAbsoluteAddress("libil2cpp.so", string2Offset("0x1235436")); // if you accidentally set a key you dont want to
+
+    if (ObscuredPrefs_SetInt && ObscuredPrefs_DeleteKey) {
+      // works better with monostring
+        monoString *ChickenItemAdminKey = CreateMonoString("ChickenItem");
+        if (ChickenItemAdminKey) {
+            ObscuredPrefs_SetInt(ChickenItemAdminKey, 1); //setting it all to 1
+        }
+
+       
+        monoString *chickenKey50 = CreateMonoString("Turret");
+        if (chickenKey50) {
+            ObscuredPrefs_SetInt(chickenKey50, 1); // setting it to one is like forming it as true, so it works always
+        }
+
+        
+        monoString *AdminPowerKey = CreateMonoString("AdminPower");
+        if (AdminPowerKey) {
+            ObscuredPrefs_SetInt(AdminPowerKey, 1);
+        }
+
+        // incase you dont want to unlock something, you can always delete it, although this probably wont work most of the time
+        monoString *chickenKey40 = CreateMonoString("SmoothOperator");
+        if (chickenKey40) {
+            ObscuredPrefs_DeleteKey(chickenKey40);
+        }
+
+        // Set all of it like this, includes a better exclution of pref you dont wanna set
+        for (int i = 1; i <= 60; i++) {
+            if (i == 40 || i == 50) continue; // u can kkip ChickenItem40 and ChickenItem50
+
+            char chickenKeyStr[16]; // Buffer "ChickenItem" string (up to ChickenItem60)
+            snprintf(chickenKeyStr, sizeof(chickenKeyStr), "Player%d", i); // Generate key like "ChickenItem1", "ChickenItem5" for example
+            
+            monoString *chickenKey = CreateMonoString(chickenKeyStr);
+            if (chickenKey) {
+                ObscuredPrefs_SetInt(chickenKey, 1);
+            }
+        }
+    }
+
+    return nullptr;
+}
+
+void *hack_thread(void *) {
+    do {
+        sleep(1);
+    } while (!isLibraryLoaded("libil2cpp.so"));
+
+    // the seperate thread to set the preferences after delaying
+    pthread_t adminThread;
+    pthread_create(&adminThread, nullptr, set_admin_thread, nullptr);
+
+    return nullptr;
+}
+
+[[maybe_unused]] __attribute__((constructor))
+void lib_main() {
+    pthread_t ptid;
+    pthread_create(&ptid, nullptr, hack_thread, nullptr);
+}
