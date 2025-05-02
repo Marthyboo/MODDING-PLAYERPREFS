@@ -4,6 +4,10 @@
 #include <unistd.h>
 #include "Includes/Strings.h" // this should be within your lgl mod menu if you dont already have it !
 
+#include "Includes/Utils.h"   // For islibloaded, getabsoluteaddress, and string2offset
+#include "dobby.h"            // only if u use dobby, using mshookfunction also works
+
+
 // custom thread for the delay to be added, 10 seconds is a must or anything under 10 seconds will crash the game on startup
 void *set_admin_thread(void *) {
    
@@ -57,10 +61,44 @@ void *set_admin_thread(void *) {
     return nullptr;
 }
 
+
+
+// Function to NOP the target method only works with arm32 but you can replace this
+void nop_patch(void *address) {
+
+    uint32_t nop_instruction = 0xE320F000;
+
+    // NOP two  
+
+    *(uint32_t *)address = nop_instruction;       // First NOP
+
+    *(uint32_t *)((char *)address + 4) = nop_instruction; // Second NOP
+
+}
+
+
+
+
+
 void *hack_thread(void *) {
     do {
         sleep(1);
     } while (!isLibraryLoaded("libil2cpp.so"));
+
+ // NOP ObscuredPrefs.SavesTampered incase of detection !
+    void *savesTamperedAddr = (void *)getAbsoluteAddress("libil2cpp.so", string2Offset("0x2378425"));
+    if (savesTamperedAddr) {
+        DobbyHook(savesTamperedAddr, (void *)dummy_function, nullptr);
+        nop_patch(savesTamperedAddr); // Apply NOP instructions directly
+    }
+
+    // NOP ObscuredPrefs.PossibleForeignSavesDetected 
+    void *foreignSavesAddr = (void *)getAbsoluteAddress("libil2cpp.so", string2Offset("0x1235435"));
+    if (foreignSavesAddr) {
+        DobbyHook(foreignSavesAddr, (void *)dummy_function, nullptr);
+        nop_patch(foreignSavesAddr); // Apply directly
+    }
+
 
     // the seperate thread to set the preferences after delaying
     pthread_t adminThread;
