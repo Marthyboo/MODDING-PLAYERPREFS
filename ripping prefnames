@@ -1,0 +1,157 @@
+
+#include "Includes/Utils.h"
+#include "Includes/Strings.h"
+
+
+
+
+
+
+
+
+char* MonoStringToUTF8(monoString* str) {
+    if (!str || str->getLength() <= 0) {
+        LOGD("MonoStringToUTF8: Null or empty string, length: %d", str ? str->getLength() : -1);
+        return nullptr;
+    }
+    int len = str->getLength();
+    uint16_t* chars = (uint16_t*)str->getChars();
+    if (!chars) {
+        LOGD("MonoStringToUTF8: Null chars, length: %d", len);
+        return nullptr;
+    }
+    char* result = new char[len * 2 + 1];
+    int pos = 0;
+    for (int i = 0; i < len && pos < len * 2; ++i) {
+        uint16_t c = chars[i];
+        if (len <= 8 || i < 5) {
+            LOGD("MonoStringToUTF8: Char[%d]: 0x%04x", i, c);
+        }
+        if (c < 0x80) {
+            result[pos++] = (char)c;
+        } else {
+            result[pos++] = (char)(0xC0 | (c >> 6));
+            result[pos++] = (char)(0x80 | (c & 0x3F));
+        }
+    }
+    result[pos] = '\0';
+    LOGD("MonoStringToUTF8: Length: %d, Result: %s", len, result);
+    return result;
+}
+
+// obscuredprefs.getint
+typedef int (*GetInt_t)(monoString* key, int defaultValue);
+GetInt_t old_GetInt;
+
+int GetInt_hook(monoString* key, int defaultValue) {
+    if (!key) {
+        LOGD("ObscuredPrefs.GetInt: Null key, default: %d", defaultValue);
+        return old_GetInt(key, defaultValue);
+    }
+    int value = old_GetInt(key, defaultValue);
+    char* keyStr = MonoStringToUTF8(key);
+    if (keyStr) {
+        LOGD("ObscuredPrefs.GetInt called with key: %s, value: %d, default: %d", keyStr, value, defaultValue);
+        delete[] keyStr;
+    } else {
+        LOGD("ObscuredPrefs.GetInt: Failed to convert key, value: %d, default: %d, length: %d",
+             value, defaultValue, key->getLength());
+    }
+    return value;
+}
+
+// setint
+typedef void (*SetInt_t)(monoString* key, int value);
+SetInt_t old_SetInt;
+
+void SetInt_hook(monoString* key, int value) {
+    if (!key) {
+        LOGD("ObscuredPrefs.SetInt: Null key, value: %d", value);
+        old_SetInt(key, value);
+        return;
+    }
+    char* keyStr = MonoStringToUTF8(key);
+    if (keyStr) {
+        LOGD("ObscuredPrefs.SetInt called with key: %s, value: %d", keyStr, value);
+        delete[] keyStr;
+    } else {
+        LOGD("ObscuredPrefs.SetInt: Failed to convert key, value: %d, length: %d",
+             value, key->getLength());
+    }
+    old_SetInt(key, value);
+}
+
+// setting obscuredstring finder
+typedef void (*SetString_t)(monoString* key, monoString* value);
+SetString_t old_SetString;
+
+void SetString_hook(monoString* key, monoString* value) {
+    if (!key) {
+        LOGD("ObscuredPrefs.SetString: Null key, value: %p", value);
+        old_SetString(key, value);
+        return;
+    }
+    char* keyStr = MonoStringToUTF8(key);
+    char* valueStr = MonoStringToUTF8(value);
+    if (keyStr) {
+        LOGD("ObscuredPrefs.SetString called with key: %s, value: %s", keyStr, valueStr ? valueStr : "null");
+        delete[] keyStr;
+    } else {
+        LOGD("ObscuredPrefs.SetString: Failed to convert key, value: %s, length: %d",
+             valueStr ? valueStr : "null", key->getLength());
+    }
+    if (valueStr) delete[] valueStr;
+    old_SetString(key, value);
+}
+
+// gettystring
+typedef monoString* (*GetString_t)(monoString* key, monoString* defaultValue);
+GetString_t old_GetString;
+
+monoString* GetString_hook(monoString* key, monoString* defaultValue) {
+    if (!key) {
+        LOGD("ObscuredPrefs.GetString: Null key");
+        return old_GetString(key, defaultValue);
+    }
+    monoString* value = old_GetString(key, defaultValue);
+    char* keyStr = MonoStringToUTF8(key);
+    char* valueStr = MonoStringToUTF8(value);
+    if (keyStr) {
+        LOGD("ObscuredPrefs.GetString called with key: %s, value: %s", keyStr, valueStr ? valueStr : "null");
+        delete[] keyStr;
+    } else {
+        LOGD("ObscuredPrefs.GetString: Failed to convert key, value: %s, length: %d",
+             valueStr ? valueStr : "null", key->getLength());
+    }
+    if (valueStr) delete[] valueStr;
+    return value;
+}
+
+void *hack_thread(void *) {
+    do {
+        sleep(1);
+    } while (!isLibraryLoaded(fucken) || !isLibraryLoaded(motherfucka));
+    sleep(2);
+    sleep(1);
+
+    DobbyHook(
+            (void *)getAbsoluteAddress(fucken, string2Offset(OBFUSCATE("0x23782384"))),
+            (void *)GetInt_hook,
+            (void **)&old_GetInt // public static int GetInt(string key, int defaultValue) { }
+    );
+    DobbyHook(
+            (void *)getAbsoluteAddress(fucken, string2Offset(OBFUSCATE("0x32872345"))),
+            (void *)SetInt_hook,
+            (void **)&old_SetInt // public static void SetInt(string key, int value) { }
+
+    );
+    DobbyHook(
+            (void *)getAbsoluteAddress(fucken, string2Offset(OBFUSCATE("0x23487234"))),
+            (void *)SetString_hook,
+            (void **)&old_SetString // 	public static void SetString(string key, string value) { } 
+    );
+    DobbyHook(
+            (void *)getAbsoluteAddress(fucken, string2Offset(OBFUSCATE("0x23873234"))),
+            (void *)GetString_hook,
+            (void **)&old_GetString // in obscuredprefs class, public static string GetString(string key, string defaultValue) { }
+    );
