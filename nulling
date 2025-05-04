@@ -1,0 +1,2 @@
+adb logcat | findstr Mod_menu
+ my own log for it
