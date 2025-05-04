@@ -1,3 +1,3 @@
-adb logcat | grep Mod_menu
+adb logcat | grep Mod_Menu
 
  my own log for it
