@@ -11,13 +11,13 @@
 
 char* MonoStringToUTF8(monoString* str) {
     if (!str || str->getLength() <= 0) {
-        LOGD("MonoStringToUTF8: Null or empty string, length: %d", str ? str->getLength() : -1);
+      //  LOGD("MonoStringToUTF8: Null or empty string, length: %d", str ? str->getLength() : -1);
         return nullptr;
     }
     int len = str->getLength();
     uint16_t* chars = (uint16_t*)str->getChars();
     if (!chars) {
-        LOGD("MonoStringToUTF8: Null chars, length: %d", len);
+    //    LOGD("MonoStringToUTF8: Null chars, length: %d", len);
         return nullptr;
     }
     char* result = new char[len * 2 + 1];
@@ -25,7 +25,7 @@ char* MonoStringToUTF8(monoString* str) {
     for (int i = 0; i < len && pos < len * 2; ++i) {
         uint16_t c = chars[i];
         if (len <= 8 || i < 5) {
-            LOGD("MonoStringToUTF8: Char[%d]: 0x%04x", i, c);
+      //      LOGD("MonoStringToUTF8: Char[%d]: 0x%04x", i, c);
         }
         if (c < 0x80) {
             result[pos++] = (char)c;
@@ -35,7 +35,7 @@ char* MonoStringToUTF8(monoString* str) {
         }
     }
     result[pos] = '\0';
-    LOGD("MonoStringToUTF8: Length: %d, Result: %s", len, result);
+   // LOGD("MonoStringToUTF8: Length: %d, Result: %s", len, result);
     return result;
 }
 
