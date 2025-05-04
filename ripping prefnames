@@ -39,6 +39,12 @@ char* MonoStringToUTF8(monoString* str) {
     return result;
 }
 
+
+
+
+
+
+
 // obscuredprefs.getint
 typedef int (*GetInt_t)(monoString* key, int defaultValue);
 GetInt_t old_GetInt;
@@ -127,6 +133,36 @@ monoString* GetString_hook(monoString* key, monoString* defaultValue) {
     return value;
 }
 
+
+
+
+
+// ObscuredPrefs.HasKey
+typedef int (*HasKey_t)(monoString* key);
+HasKey_t old_HasKey;
+
+int HasKey_hook(monoString* key) {
+    if (!key) {
+        LOGD("ObscuredPrefs.HasKey: Null key");
+        return old_HasKey(key);
+    }
+    int result = old_HasKey(key);
+    char* keyStr = MonoStringToUTF8(key);
+    if (keyStr) {
+        LOGD("ObscuredPrefs.HasKey called with key: %s, result: %d", keyStr, result);
+        delete[] keyStr;
+    } else {
+        LOGD("ObscuredPrefs.HasKey: Failed to convert key, result: %d, length: %d",
+             result, key->getLength());
+    }
+    return result;
+}
+
+
+
+
+
+
 void *hack_thread(void *) {
     do {
         sleep(1);
@@ -154,4 +190,11 @@ void *hack_thread(void *) {
             (void *)getAbsoluteAddress(fucken, string2Offset(OBFUSCATE("0x23873234"))),
             (void *)GetString_hook,
             (void **)&old_GetString // in obscuredprefs class, public static string GetString(string key, string defaultValue) { }
+    );
+
+
+    DobbyHook(
+            (void *)getAbsoluteAddress(fucken, string2Offset(OBFUSCATE("0x23873234"))),
+            (void *)HasKey_hook,
+            (void **)&old_HasKey // in obscuredprefs class, haskey
     );
