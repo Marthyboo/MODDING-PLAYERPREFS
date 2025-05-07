@@ -36,11 +36,14 @@
 #define ewgegggg OBFUSCATE("libil2cpp.so")
 
 // Function offsets
-#define GET_INT_OFFSET      "0x1612332" // ObscuredPrefs.GetInt
-#define SET_INT_OFFSET      "0x1232312" // ObscuredPrefs.SetInt
-#define SET_STRING_OFFSET   "0x1231233" // ObscuredPrefs.SetString
-#define GET_STRING_OFFSET   "0x123123" // ObscuredPrefs.GetString
-#define HAS_KEY_OFFSET      "0x123123" // ObscuredPrefs.HasKey
+#define GET_INT_OFFSET      "0xxxxx" // ObscuredPrefs.GetInt
+#define SET_INT_OFFSET      "0xxxxx" // ObscuredPrefs.SetInt
+#define SET_STRING_OFFSET   "0xxxxx" // ObscuredPrefs.SetString
+#define GET_STRING_OFFSET   "0xxxxx" // ObscuredPrefs.GetString
+#define HAS_KEY_OFFSET      "0xxxxx" // ObscuredPrefs.HasKey
+#define CHAT_MESSAGE_OFFSET "0xxxxx" // ChatMessage
+#define PUSH_MESSAGE_KILLS_OFFSET "0xxxxx" // unused
+#define GET_BUTTON_DOWN_OFFSET "0xxxxx" // unused
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "NullDereference"
@@ -525,14 +528,34 @@ void PushMessageKills_hook(void* thisPtr, ModMenu::monoString* playerNameDead, M
     old_PushMessageKills(thisPtr, playerNameDead, playerKiller, lineHeight, suicide);
 }
 
+typedef bool (*GetButtonDown_t)(ModMenu::monoString* buttonName);
+GetButtonDown_t old_GetButtonDown;
+bool GetButtonDown_hook(ModMenu::monoString* buttonName) {
+    try {
+        if (!old_GetButtonDown) {
+            ImGuiLogger::LogError("GetButtonDown_hook: old_GetButtonDown is null");
+            return false;
+        }
+
+        bool result = old_GetButtonDown(buttonName);
+        if (ImGuiLogger::logGetButtonDown) {
+            auto buttonStr = MonoStringToUTF8(buttonName);
+            ImGuiLogger::Log("GetButtonDown", buttonStr.get() ? buttonStr.get() : "null");
+        }
+        return result;
+    } catch (const std::exception& e) {
+        ImGuiLogger::LogError("GetButtonDown_hook: Exception: %s", e.what());
+        return false;
+    } catch (...) {
+        ImGuiLogger::LogError("GetButtonDown_hook: Unknown exception");
+        return false;
+    }
+}
+
 void *set_prefs_thread(void *) {
     sleep(16);
     void (*SetInt)(void *key, int value) = (void (*)(void *, int)) getAbsoluteAddress(
-            ewgegggg, string2Offset(OBFUSCATE("0x1639OFF")));
-
-
-    //prefs generated you should put into here, set your own int on them aswell, could be a long list
-
+            ewgegggg, string2Offset(OBFUSCATE("0xOFFSET")));
 
 
     if (!SetInt) {
@@ -561,40 +584,60 @@ void *xT0u1v2(void *) {
     if (getInt_target_addr) {
         DobbyHook(getInt_target_addr, (void *)GetInt_hook, (void **)&old_GetInt);
     } else {
-        LOGE("Failed  GetInt");
+        LOGE("Failed to get address for GetInt");
     }
 
     void *setInt_target_addr = (void *)getAbsoluteAddress(ewgegggg, string2Offset(OBFUSCATE(SET_INT_OFFSET)));
     if (setInt_target_addr) {
         DobbyHook(setInt_target_addr, (void *)SetInt_hook, (void **)&old_SetInt);
     } else {
-        LOGE("Failed  SetInt");
+        LOGE("Failed to get address for SetInt");
     }
 
     void *setString_target_addr = (void *)getAbsoluteAddress(ewgegggg, string2Offset(OBFUSCATE(SET_STRING_OFFSET)));
     if (setString_target_addr) {
         DobbyHook(setString_target_addr, (void *)SetString_hook, (void **)&old_SetString);
     } else {
-        LOGE("Failed  SetString");
+        LOGE("Failed to get address for SetString");
     }
 
     void *getString_target_addr = (void *)getAbsoluteAddress(ewgegggg, string2Offset(OBFUSCATE(GET_STRING_OFFSET)));
     if (getString_target_addr) {
         DobbyHook(getString_target_addr, (void *)GetString_hook, (void **)&old_GetString);
     } else {
-        LOGE("Failed  GetString");
+        LOGE("Failed to get address for GetString");
     }
 
     void *hasKey_target_addr = (void *)getAbsoluteAddress(ewgegggg, string2Offset(OBFUSCATE(HAS_KEY_OFFSET)));
     if (hasKey_target_addr) {
         DobbyHook(hasKey_target_addr, (void *)HasKey_hook, (void **)&old_HasKey);
     } else {
-        LOGE("Failed  HasKey");
+        LOGE("Failed to get address for HasKey");
     }
 
-   
+    void *chatMessage_target_addr = (void *)getAbsoluteAddress(ewgegggg, string2Offset(OBFUSCATE(CHAT_MESSAGE_OFFSET)));
+    if (chatMessage_target_addr) {
+        DobbyHook(chatMessage_target_addr, (void *)ChatMessage_hook, (void **)&old_ChatMessage);
+        LOGE("ChatMessage hooked at %p", chatMessage_target_addr);
+    } else {
+        LOGE("Failed to get address for ChatMessage");
+    }
 
-    
+    void *pushMessageKills_target_addr = (void *)getAbsoluteAddress(ewgegggg, string2Offset(OBFUSCATE(PUSH_MESSAGE_KILLS_OFFSET)));
+    if (pushMessageKills_target_addr) {
+        DobbyHook(pushMessageKills_target_addr, (void *)PushMessageKills_hook, (void **)&old_PushMessageKills);
+        LOGE("PushMessageKills hooked at %p", pushMessageKills_target_addr);
+    } else {
+        LOGE("Failed to get address for PushMessageKills");
+    }
+
+    void *get_button_down_target_addr = (void *)getAbsoluteAddress(ewgegggg, string2Offset(OBFUSCATE(GET_BUTTON_DOWN_OFFSET)));
+    if (get_button_down_target_addr) {
+        DobbyHook(get_button_down_target_addr, (void *)GetButtonDown_hook, (void **)&old_GetButtonDown);
+        LOGE("GetButtonDown hooked at %p", get_button_down_target_addr);
+    } else {
+        LOGE("Failed to get address for GetButtonDown");
+    }
 
     Unity::Screen::Setup();
     if (emulator) {
@@ -626,11 +669,6 @@ void xU1v2w3() {
         ImGui::Checkbox("HasKey", &ImGuiLogger::logHasKey);
 
         ImGui::Text("Chat:");
-        ImGui::Checkbox("ChatMessage", &ImGuiLogger::logChatMessage);
-        ImGui::SameLine();
-        ImGui::Checkbox("PushMessageKills", &ImGuiLogger::logPushMessageKills);
-
-        ImGui::Text("Input:");
 
         ImGui::Separator();
 
@@ -734,7 +772,7 @@ void xU1v2w3() {
                 outFile << "void *set_prefs_thread(void *) {\n";
                 outFile << "    sleep(16);\n";
                 outFile << "    void (*SetInt)(void *key, int value) = (void (*)(void *, int)) getAbsoluteAddress(\n";
-                outFile << "            ewgegggg, string2Offset(OBFUSCATE(\"0x1639OFF\")));\n\n";
+                outFile << "            ewgegggg, string2Offset(OBFUSCATE(\"0xOFFSET\")));\n\n";
                 outFile << "    if (SetInt) {\n";
                 for (const auto& key : ImGuiLogger::knownKeys) {
                     std::string varName = key;
@@ -761,31 +799,7 @@ void xU1v2w3() {
         }
 
         ImGui::Separator();
-        ImGui::Text("Generate Message Logs:");
-        if (ImGui::Button("Generate Message Logs")) {
-            std::lock_guard<std::mutex> lock(ImGuiLogger::logMutex);
-            std::string dirPath = std::string(filePath);
-            size_t lastSlash = dirPath.find_last_of('/');
-            if (lastSlash == std::string::npos) {
-                dirPath = "./messagelog.txt";
-            } else {
-                dirPath = dirPath.substr(0, lastSlash + 1) + "messagelog.txt";
-            }
-            std::ofstream outFile(dirPath);
-            if (outFile.is_open()) {
-                std::string messageLogs = ImGuiLogger::GetMessageLogs();
-                outFile << "// Generated message logs\n";
-                outFile << messageLogs;
-                outFile.close();
-                statusMessage = "Message logs saved successfully to " + dirPath;
-                LOGE("Message logs written to %s", dirPath.c_str());
-            } else {
-                statusMessage = "Failed to write message logs to " + dirPath;
-                LOGE("Failed to write message logs to %s", dirPath.c_str());
-            }
-        }
 
-        ImGui::Separator();
         ImGui::Text("Status:");
         ImGui::TextWrapped("%s", statusMessage.c_str());
 
