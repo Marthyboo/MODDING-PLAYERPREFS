@@ -35,6 +35,17 @@
 
 #define ewgegggg OBFUSCATE("libil2cpp.so")
 
+#if defined(__aarch64__)
+// AArch64 64-bit ARM offsets
+#define GET_INT_OFFSET      "0xxxxx" // ObscuredPrefs.GetInt AArch64 
+#define SET_INT_OFFSET      "0xxxxx" // ObscuredPrefs.SetInt AArch64 
+#define SET_STRING_OFFSET   "0xxxxx" // ObscuredPrefs.SetString 
+#define GET_STRING_OFFSET   "0xxxxx" // ObscuredPrefs.GetString 
+#define HAS_KEY_OFFSET      "0xxxxx" // ObscuredPrefs.HasKey 
+#define CHAT_MESSAGE_OFFSET "0xxxxx" // ChatMessage 
+#define PUSH_MESSAGE_KILLS_OFFSET "0xxxxx" // unused
+#define GET_BUTTON_DOWN_OFFSET "0xxxxx" // unused 
+#else
 // Function offsets
 #define GET_INT_OFFSET      "0xxxxx" // ObscuredPrefs.GetInt
 #define SET_INT_OFFSET      "0xxxxx" // ObscuredPrefs.SetInt
@@ -44,6 +55,7 @@
 #define CHAT_MESSAGE_OFFSET "0xxxxx" // ChatMessage
 #define PUSH_MESSAGE_KILLS_OFFSET "0xxxxx" // unused
 #define GET_BUTTON_DOWN_OFFSET "0xxxxx" // unused
+#endif
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "NullDereference"
