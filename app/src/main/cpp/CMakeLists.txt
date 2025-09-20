@@ -12,6 +12,7 @@ add_library(
              ImGui/imgui_demo.cpp
              ImGui/imgui_draw.cpp
              ByNameModding/bnm.cpp
+              Misc/Utils.cpp
         http/cpr/async.cpp
         http/cpr/auth.cpp
         http/cpr/bearer.cpp
