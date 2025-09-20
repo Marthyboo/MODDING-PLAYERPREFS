@@ -7,49 +7,65 @@
 #include <cstring>
 #include <string>
 #include <cstdlib>
+#include <sys/mman.h>
+#include <cerrno>
 #include "../Obfuscation/Obfuscate.h"
 #include "../Misc/Logging.h"
+#include <cstdio>
+
 
 typedef unsigned long DWORD;
 static uintptr_t libBase;
 
 bool isGameLibLoaded = false;
 
-DWORD findLibrary(const char *library) {
-    char filename[0xFF] = {0},
-            buffer[1024] = {0};
-    FILE *fp = NULL;
-    DWORD address = 0;
+uintptr_t findLibrary(const char *libraryName) {
+    char filename[0xFF] = {0}, buffer[1024] = {0};
+    FILE *fp = nullptr;
+    uintptr_t address = 0;
 
     sprintf(filename, OBFUSCATE("/proc/self/maps"));
 
     fp = fopen(filename, OBFUSCATE("rt"));
-    if (fp == NULL) {
-        perror(OBFUSCATE("fopen"));
-        goto done;
+    if (fp == nullptr) {
+        LOGE(OBFUSCATE("Failed to open : %s"), strerror(errno));
+        return 0;
     }
 
     while (fgets(buffer, sizeof(buffer), fp)) {
-        if (strstr(buffer, library)) {
-            address = (DWORD) strtoul(buffer, NULL, 16);
-            goto done;
+        // executable segment r-xp or any mapping for emulator
+        if (strstr(buffer, libraryName) && (strstr(buffer, "r-xp") || strstr(buffer, "r--p"))) {
+            char *addr_str = strtok(buffer, "-");
+            if (addr_str) {
+                address = strtoull(addr_str, nullptr, 16);
+                if (address != 0 && msync((void*)address, 0x1000, 0) == 0) {
+                    LOGI(OBFUSCATE("finding %s at 0x%lx (%s)"), libraryName, address, strstr(buffer, "r-xp") ? "executable" : "readable");
+                    break;
+                }
+            }
         }
     }
 
-    done:
-
-    if (fp) {
-        fclose(fp);
+    if (address == 0) {
+        LOGE(OBFUSCATE("couldnt not find valid segment %s"), libraryName);
     }
 
+    fclose(fp);
     return address;
 }
 
-DWORD getAbsoluteAddress(const char *libraryName, DWORD relativeAddr) {
-    libBase = findLibrary(libraryName);
-    if (libBase == 0)
-        return 0;
-    return (reinterpret_cast<DWORD>(libBase + relativeAddr));
+
+uintptr_t getAbsoluteAddress(const char *libraryName, uintptr_t relativeAddr) {
+    if (libBase == 0) {
+        libBase = findLibrary(libraryName);
+        if (libBase == 0) {
+            LOGE(OBFUSCATE("cant get absolute address: %s not found"), libraryName);
+            return 0;
+        }
+    }
+    uintptr_t absolute = libBase + relativeAddr;
+    LOGI(OBFUSCATE("Calculated absolute address: 0x%lx + 0x%lx = 0x%lx"), libBase, relativeAddr, absolute);
+    return absolute;
 }
 
 extern "C" {
@@ -99,7 +115,6 @@ void MakeToast(JNIEnv *env, jobject thiz, const char *text, int length) {
 
     jmethodID methodShow = env->GetMethodID(toast, OBFUSCATE("show"), OBFUSCATE("()V"));
     if (methodShow == NULL) {
-        LOGE(OBFUSCATE("toast.show not Found"));
         return;
     }
     env->CallVoidMethod(toastobj, methodShow);
@@ -113,14 +128,13 @@ uintptr_t string2Offset(const char *c) {
     // compiler that is not yet addressed.
     static_assert(sizeof(uintptr_t) == sizeof(unsigned long)
                   || sizeof(uintptr_t) == sizeof(unsigned long long),
-                  "Please add string to handle conversion for this architecture.");
-
-    // Now choose the correct function ...
+                  "string to handle conversion for the arch.");
+    
     if (sizeof(uintptr_t) == sizeof(unsigned long)) {
         return strtoul(c, nullptr, base);
     }
 
-    // All other options exhausted, sizeof(uintptr_t) == sizeof(unsigned long long))
+    // All other options exhausted? sizeof(uintptr_t) == sizeof(unsigned long long))
     return strtoull(c, nullptr, base);
 }
 
