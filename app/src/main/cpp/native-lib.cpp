@@ -24,7 +24,7 @@
 #include "Misc/Logging.h"
 #include "Misc/JNIStuff.h"
 #include "Misc/FileWrapper.h"
-#include "Misc/Utils.h"
+#include "Misc/Utils.hpp"
 #include "ByNameModding/BNM.hpp"
 #include "Obfuscation/Obfuscate.h"
 #include "Obfuscation/Custom_Obfuscate.h"
